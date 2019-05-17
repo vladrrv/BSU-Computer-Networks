@@ -63,13 +63,15 @@ SOCKET accept_client(SOCKET listen_socket, Registry & r) {
 
 class Dictionary {
 	map<string, string> content;
+	string filename;
 	typedef pair<string, string> str_pair;
 
 public:
 	Dictionary() {	}
 	Dictionary(string filename) {
+		this->filename = filename;
 		ifstream infile(filename);
-		while (!infile.eof()) {
+		while (!infile.eof() && infile.peek() != ifstream::traits_type::eof()) {
 			string pair;
 			infile >> pair;
 			content.insert(parse(pair));
@@ -81,7 +83,7 @@ public:
 		string delimiter = "#";
 		size_t pos = s.find(delimiter);
 		string key = s.substr(0, pos);
-		string value = s.substr(pos);
+		string value = s.substr(pos+1);
 		return str_pair(key, value);
 	}
 
@@ -92,17 +94,24 @@ public:
 	string execute(char Buffer[BUF_SIZE]) {
 
 		string cmd = string(Buffer);
-		string pref = cmd.substr(0, cmd.find(' '));
-
+		size_t pos = cmd.find(' ');
+		string pref = cmd.substr(0, pos);
+		string key = cmd.substr(pos + 1);
+		string res = "";
 		if (pref == "add") {
-
+			ofstream file(filename);
+			file << key;
+			content.insert(parse(key));
+			file.close();
+			cout << "Added " << key << " successfully\n";
 		}
 		else if (pref == "get") {
-
+			res = content[key];
 		}
 		else {
 			cout << "Invalid command '" << pref << "'\n";
 		}
+		return res;
 	}
 };
 
@@ -121,7 +130,7 @@ int main(void) {
 	Dictionary d("dict.txt");
 
 	if (WSAStartup(0x101, &wsaData) == SOCKET_ERROR) {
-		fprintf(stderr, "WSAStartup failed with error %d\n", WSAGetLastError());
+		cerr << "WSAStartup failed with error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
@@ -129,8 +138,7 @@ int main(void) {
 	//Create a socket
 	listen_socket = socket(AF_INET, socket_type, 0); // TCP socket
 	if (listen_socket == INVALID_SOCKET) {
-		fprintf(stderr, "Server: Error Opening socket: Error %d\n",
-			WSAGetLastError());
+		cerr << "Server: Error Opening socket: Error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
@@ -143,17 +151,17 @@ int main(void) {
 
 	if (bind(listen_socket, (struct sockaddr*) & local, sizeof(local))
 		== SOCKET_ERROR) {
-		fprintf(stderr, "bind() failed with error %d\n", WSAGetLastError());
+		cerr << "bind() failed: error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
 
 	if (listen(listen_socket, 5) == SOCKET_ERROR) {
-		fprintf(stderr, "listen() failed with error %d\n", WSAGetLastError());
+		cerr << "listen() failed: error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
-	printf("Server listening on port %d , protocol TCP\n", port);
+	cout << "Server listening on port " << port << " , protocol TCP\n";
 
 	while (true) {
 
@@ -162,32 +170,29 @@ int main(void) {
 		string buf = "Server waiting for commands";
 		retval = send(msgsock, buf.c_str(), buf.size() + 1, 0);
 		if (retval == SOCKET_ERROR) {
-			fprintf(stderr, "Server: send() failed: error %d\n", WSAGetLastError());
+			cerr << "Server: send() failed: error " << WSAGetLastError() << endl;
 		}
 
 		while (true) {
 
 			retval = recv(msgsock, Buffer, sizeof(Buffer), 0);
 			if (retval == SOCKET_ERROR) {
-				fprintf(stderr, "Server: recv() failed: error %d\n", WSAGetLastError());
+				cerr << "Server: recv() failed: error " << WSAGetLastError() << endl;
 				closesocket(msgsock);
 				return -1;
 			}
 			if (retval == 0) {
-				printf("Client closed connection\n");
+				cout << "Client closed connection\n";
 				closesocket(msgsock);
 			}
-			printf("Received %d bytes, data [%s] from client\n", retval, Buffer);
+			cout << "Received " << retval << " bytes, data [" << Buffer << "] from client\n";
 
-			/*
-				Parse & execute command and send result to client
-			*/
-
-			buf = parse_execute(Buffer);
-
+			
+			// Parse & execute command and send result to client
+			buf = d.execute(Buffer);
 			retval = send(msgsock, buf.c_str(), buf.size() + 1, 0);
 			if (retval == SOCKET_ERROR) {
-				fprintf(stderr, "Server: send() failed: error %d\n", WSAGetLastError());
+				cerr << "Server: send() failed: error " << WSAGetLastError() << endl;
 			}
 
 		}

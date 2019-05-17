@@ -17,18 +17,19 @@ int main(void) {
 	struct sockaddr_in server;
 	struct hostent* hp;
 	WSADATA wsaData;
-	SOCKET  conn_socket;
+	SOCKET conn_socket;
 
 	socket_type = SOCK_STREAM;   // TCP-protocol
 
 	if (WSAStartup(0x101, &wsaData) == SOCKET_ERROR) {
-		fprintf(stderr, "WSAStartup failed with error %d\n", WSAGetLastError());
+		cerr << "WSAStartup failed with error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
 
-	fprintf(stdout, "Input server IP-address\n");
-	getline(cin, server_name);
+	cout << "Input server IP-address\n";
+	cin >> server_name;
+	cin.get();
 
 	if (isalpha(server_name[0])) {   /* server address is a name */
 		hp = gethostbyname(server_name.c_str());
@@ -38,16 +39,15 @@ int main(void) {
 		hp = gethostbyaddr((char*)& addr, 4, AF_INET);
 	}
 	if (hp == NULL) {
-		fprintf(stderr, "Client: Cannot resolve address [%s]: Error %d\n",
-			server_name.c_str(), WSAGetLastError());
+		cerr << "Client: Cannot resolve address [" << server_name << "]: Error " 
+			<< WSAGetLastError() << endl;
 		WSACleanup();
 		exit(1);
 	}
 	// Create a socket
 	conn_socket = socket(AF_INET, socket_type, 0);
 	if (conn_socket == INVALID_SOCKET) {
-		fprintf(stderr, "Client: Error Opening socket: Error %d\n",
-			WSAGetLastError());
+		cerr << "Client: Error Opening socket: Error " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
@@ -62,58 +62,58 @@ int main(void) {
 	printf("Client connecting to: %s\n", hp->h_name);
 	if (connect(conn_socket, (struct sockaddr*) & server, sizeof(server))
 		== SOCKET_ERROR) {
-		fprintf(stderr, "connect() failed: %d\n", WSAGetLastError());
+		cerr << "connect() failed: " << WSAGetLastError() << endl;
 		WSACleanup();
 		return -1;
 	}
 
 	retval = recv(conn_socket, Buffer, sizeof(Buffer), 0);
 	if (retval == SOCKET_ERROR) {
-		fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
+		cerr << "recv() failed: error " << WSAGetLastError() << endl;
 		closesocket(conn_socket);
 		WSACleanup();
 		return -1;
 	}
 	if (retval == 0) {
-		printf("Server closed connection\n");
+		cout << "Server closed connection\n";
 		closesocket(conn_socket);
 		WSACleanup();
 		return -1;
 	}
-	printf("Received %d bytes, data [%s] from server\n", retval, Buffer);
+	cout << "Received " << retval << " bytes, data [" << Buffer << "] from server\n";
 
 
-	while (c != 'e') {
+	while (c != 27) {
 
-		fprintf(stdout, "Input message\n");
+		cout << "Input message\n";
 		string buf;
 		getline(cin, buf);
 
 		retval = send(conn_socket, buf.c_str(), buf.size() + 1, 0);
 		if (retval == SOCKET_ERROR) {
-			fprintf(stderr, "send() failed: error %d\n", WSAGetLastError());
+			cerr << "send() failed: error " << WSAGetLastError() << endl;
 			WSACleanup();
 			return -1;
 		}
-		printf("Sent Data [%s]\n", buf.c_str());
+		//cout << "Sent Data [" << buf <<  "]\n";
 		retval = recv(conn_socket, Buffer, sizeof(Buffer), 0);
 		if (retval == SOCKET_ERROR) {
-			fprintf(stderr, "recv() failed: error %d\n", WSAGetLastError());
+			cerr << "recv() failed: error " << WSAGetLastError() << endl;
 			closesocket(conn_socket);
 			WSACleanup();
 			return -1;
 		}
 
 		if (retval == 0) {
-			printf("Server closed connection\n");
+			cout << "Server closed connection\n";
 			closesocket(conn_socket);
 			WSACleanup();
 			return -1;
 		}
-		printf("Received %d bytes, data [%s] from server\n", retval, Buffer);
-
-		printf("Press Enter to continue, 'e' to exit");
-		c = getc(stdin);
+		//cout << "Received " << retval << " bytes, data [" << Buffer << "] from server\n";
+		cout << "Received '" << Buffer << "'\n";
+		cout << "Press Enter to continue, Esc to exit\n";
+		c = cin.get();
 	}
 	closesocket(conn_socket);
 	WSACleanup();
